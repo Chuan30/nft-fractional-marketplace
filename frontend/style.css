@@ -1,0 +1,12 @@
+body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f6f8fa;color:#111;margin:0;padding:20px}
+.container{max-width:920px;margin:0 auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 6px 26px rgba(15,23,42,0.06)}
+h1{margin-top:0}
+.row{margin-bottom:18px}
+.row.split{display:flex;gap:20px}
+.row.split > div{flex:1}
+label{display:block;margin-top:8px;font-size:.9rem}
+input,textarea{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:6px}
+button{margin-top:10px;padding:8px 12px;border-radius:6px;background:#2563eb;color:#fff;border:0;cursor:pointer}
+button[disabled]{opacity:.6;cursor:not-allowed}
+.muted{color:#666;margin-top:6px}
+pre{background:#0f172a;color:#e6eef8;padding:12px;border-radius:6px;max-height:240px;overflow:auto}
