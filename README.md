@@ -61,7 +61,7 @@ A blockchain project for minting and trading NFTs with fractional royalty splitt
   - Remaining → Seller
 
 ### Step 7: Claim Royalties
-- Find the RoyaltySplitter address via `tokenSplitters(0)` on the NFT contract
+- Find the RoyaltySplitter address via `royaltyInfo` on the NFT contract
 - Switch to the RoyaltySplitter contract in Remix
 - Call `release` with your address as `account`
 - ETH is released based on the share percentages you set
