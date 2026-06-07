@@ -1,187 +1,95 @@
-# NFT Fractional Marketplace
+# Fractional Royalty NFT Marketplace
 
-A blockchain project for the Blockchain course (Semester 20252).
+A blockchain project for minting and trading NFTs with fractional royalty splitting (multiple stakeholders can share royalties).
 
----
+## Contracts Overview
 
-## Project Idea
+| File | Purpose |
+|------|---------|
+| `contracts/Token.sol` | NFT contract (FractionalRoyaltyNFT) + RoyaltySplitter |
+| `contracts/PaymentSplitter.sol` | Core logic for splitting ETH payments by shares |
+| `contracts/Marketplace.sol` | Marketplace that auto-distributes royalties on sale |
 
-This project implements an **NFT Marketplace** with a **Fractional Royalty** system.
+## How to Run (Remix IDE)
 
-Normally, when you sell an NFT, the creator gets a royalty percentage on each resale. In this project, royalties can be **split among multiple receivers** in defined proportions. For example: artist 70%, platform 20%, sponsor 10%.
+1. Go to [Remix IDE](https://remix.ethereum.org/)
+2. Open this project folder (or upload the files)
+3. Go to the **Solidity Compiler** tab
+   - Set compiler version to `0.8.20+`
+   - Compile all 3 files: Token.sol, PaymentSplitter.sol, Marketplace.sol
+4. Go to the **Deploy & Run Transactions** tab
+   - Environment: **Remix VM** (or Sepolia testnet if you want real testing)
+   - Deploy in the order below
 
-### Smart Contracts
+## Step-by-Step Test Guide
 
-The project consists of 2 main contracts:
+### Step 1: Deploy FractionalRoyaltyNFT
+- Select Contract: `FractionalRoyaltyNFT`
+- Click Deploy (pass your address as `initialOwner`)
+- Copy the deployed contract address
 
-#### 1. FractionalRoyaltyNFT.sol
-- An ERC-721 NFT (from OpenZeppelin) with royalty support
-- `mintWithRoyalties()` — mint an NFT while specifying multiple royalty receivers and their shares
-- Supports EIP-2981 (Royalty Standard)
-- Validates that total shares must equal 10000 (100%)
+### Step 2: Mint an NFT with Fractional Royalty
+- Select your deployed `FractionalRoyaltyNFT`
+- Call `mintWithFractionalRoyalty`
+  - `to`: address to receive the NFT
+  - `payees`: e.g. `["0x...A", "0x...B"]` (royalty receivers)
+  - `shares`: e.g. `[60, 40]` (60% to A, 40% to B)
+  - `feeNumerator`: e.g. `1000` = 10% royalty (EIP-2981 standard)
 
-#### 2. NFTMarketplace.sol
-- A marketplace that connects with FractionalRoyaltyNFT
-- `listNFT()` — list an NFT for sale
-- `buyNFT()` — buy an NFT; automatically deducts royalties and distributes them to receivers
-- `withdrawPayments()` — withdraw accumulated ETH from sales/royalties
+### Step 3: Approve the Marketplace
+- Call `setApprovalForAll` on the NFT contract
+  - `operator`: address of your Marketplace (deploy it first if you haven't)
+  - `approved`: `true`
 
-### How it works
+### Step 4: Deploy AtomicNFTMarketplace
+- Select Contract: `AtomicNFTMarketplace`
+- Click Deploy
 
-```
-1. Owner (contract deployer) mints an NFT with royalty receivers
-2. NFT owner approves (Approve) the marketplace to manage their NFT
-3. NFT owner lists the NFT at a desired price
-4. Buyer sends ETH → the system:
-   - Deducts royalty fee → pays each receiver proportionally
-   - Remaining amount → goes to the seller
-   - Transfers NFT to buyer
-5. Seller and royalty receivers can withdraw their funds via withdrawPayments()
-```
+### Step 5: List Your NFT for Sale
+- Call `listNFT` on the Marketplace
+  - `nftAddress`: your NFT contract address
+  - `tokenId`: e.g. `0` (first minted token)
+  - `price`: e.g. `1000000000000000000` (1 ETH)
 
----
+### Step 6: Buy the NFT
+- Switch to a different account in Remix
+- Call `buyNFT` with `value` >= the listing price
+  - `nftAddress`: your NFT contract address
+  - `tokenId`: `0`
+- Funds are distributed automatically:
+  - Royalty → RoyaltySplitter contract
+  - Remaining → Seller
 
-## How to Run
+### Step 7: Claim Royalties
+- Find the RoyaltySplitter address via `tokenSplitters(0)` on the NFT contract
+- Switch to the RoyaltySplitter contract in Remix
+- Call `release` with your address as `account`
+- ETH is released based on the share percentages you set
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18+)
-- [MetaMask](https://metamask.io/) browser extension
-- Dependencies installed:
-  ```bash
-  cd "nft-fractional-marketplace"
-  npm install
-  ```
-
-### Step-by-step
-
-#### 1️⃣ Start a Local Blockchain Node
-
-Open **Terminal 1** and run:
-
-```bash
-npx hardhat node
-```
-
-This spins up a local Ethereum network and gives you 20 test accounts, each with 10,000 fake ETH.
-
-⚠️ **Keep this terminal running** — the node must stay active.
-
-#### 2️⃣ Deploy Contracts
-
-Open **Terminal 2** (in the same folder) and run:
-
-```bash
-npm run deploy
-```
-
-You'll see output like:
+## System Architecture
 
 ```
-FractionalRoyaltyNFT deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-NFTMarketplace deployed to: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+                   ┌───────────────────────┐
+                   │  FractionalRoyaltyNFT │
+                   │  (ERC721 + ERC2981)   │
+                   └──────────┬────────────┘
+                              │ Each token has its
+                              │ own RoyaltySplitter
+                   ┌──────────▼───────────┐
+                   │   RoyaltySplitter    │
+                   │  (PaymentSplitter)   │
+                   │  Splits % by shares  │
+                   └──────────────────────┘
+
+When a sale happens:
+  Buyer → sends ETH → Marketplace
+                         ├─ sends Royalty → RoyaltySplitter
+                         ├─ sends rest → Seller
+                         └─ transfers NFT → Buyer
 ```
 
-**Copy both addresses** — you'll need them in the UI.
+## Notes
 
-#### 3️⃣ Open the Frontend
-
-Open **Terminal 3** and run:
-
-```bash
-npx http-server frontend -p 8000
-```
-
-Open your browser and go to: [http://localhost:8000](http://localhost:8000)
-
----
-
-## How to Use the UI
-
-### Step 1: Connect MetaMask
-
-1. Open MetaMask in your browser
-2. Add a custom network:
-   - **Network Name**: Localhost 8545
-   - **RPC URL**: `http://127.0.0.1:8545`
-   - **Chain ID**: `31337`
-   - **Currency Symbol**: ETH
-3. Import test accounts:
-   - In **Terminal 1** (running `npx hardhat node`), you'll see Private Keys:
-     ```
-     Account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (10000 ETH)
-     Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-     ```
-   - In MetaMask: click your avatar → **Import Account** → paste the Private Key
-   - **Import at least 2 accounts** (Account #0 and Account #1) to test buying/selling
-
-### Step 2: Fill in Contract Addresses
-
-| Field | What to enter |
-|---|---|
-| **FractionalRoyaltyNFT address** | Address from `FractionalRoyaltyNFT deployed to: ...` |
-| **NFTMarketplace address** | Address from `NFTMarketplace deployed to: ...` |
-
-Click **Connect Wallet** to link MetaMask.
-
-### Step 3: Mint an NFT
-
-Fill in the **Mint NFT** section:
-
-| Field | Explanation |
-|---|---|
-| **To** | Leave blank (mints to the connected account) or enter another `0x...` address |
-| **Token URI** | Any metadata URL, e.g. `https://example.com/my-nft.json` — **or just type anything** like `hello-world` |
-| **Royalty receivers** | JSON array of who gets royalties. Example: `[["0xYourAddress",10000]]` means "one receiver gets 100%" |
-
-Example with multiple receivers:
-```json
-[
-  ["0x90F79bf6EB2c4f870365E785982E1f101E93b906", 5000],
-  ["0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65", 5000]
-]
-```
-(First person gets 50%, second gets 50% — shares must add up to 10000)
-
-Click **Mint** and wait for the transaction. Check the **Logs** section at the bottom for status.
-
-### Step 4: List the NFT for Sale
-
-⚠️ **Switch MetaMask to the account that owns the NFT** before continuing.
-
-1. Enter **Token ID** (after the first mint, this is `1`)
-2. Enter **Price (ETH)** — e.g. `1`
-3. Click **Approve Marketplace** first (gives the marketplace permission to handle your NFT)
-4. Click **List NFT**
-
-### Step 5: Buy the NFT
-
-⚠️ **Switch MetaMask to a different account** (one that has ETH).
-
-1. Enter the same Token ID and Price
-2. Click **Buy NFT**
-
-### Step 6: Check Balance & Withdraw
-
-- Click **Show My Accrued Balance** — shows how much ETH you've earned (from sales or royalties)
-- Click **Withdraw Payments** — transfers that ETH to your wallet
-
----
-
-## Available Commands
-
-| Command | Description |
-|---|---|
-| `npm run test` | Run Hardhat test suite |
-| `npm run deploy` | Deploy contracts to local network |
-| `npx hardhat node` | Start local blockchain node |
-
----
-
-## Tech Stack
-
-- **Solidity** — Smart contract language
-- **Hardhat** — Ethereum development framework
-- **OpenZeppelin** — Standard Solidity libraries (ERC-721, ReentrancyGuard)
-- **Ethers.js** — Blockchain interaction library for the frontend
-- **HTML/CSS/JS** — Simple frontend UI
+- No external tools needed — everything runs inside Remix IDE
+- To deploy on a real network (Sepolia), you'll need MetaMask and some test ETH for gas
+- The `.deps/` folder contains OpenZeppelin dependencies auto-fetched by Remix — don't touch it
