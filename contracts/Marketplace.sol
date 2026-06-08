@@ -45,6 +45,7 @@ contract AtomicNFTMarketplace is ReentrancyGuard {
     function buyNFT(address nftAddress, uint256 tokenId) external payable nonReentrant {
         Listing storage listing = listings[nftAddress][tokenId];
         require(listing.isActive, "Listing not active");
+        require(listing.seller != msg.sender, "Cant buy own listing")
         require(msg.value >= listing.price, "Insufficient funds sent");
 
         // Effects
